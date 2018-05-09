@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>交易数据简易推送</title>
+    <link rel="stylesheet" href="common/css/bootstrap.min.css">
+    <script src="common/js/jquery.min.js"></script>
+    <script src="common/js/bootstrap.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <h3>交易数据简易推送</h3>
+        <div class="row">
+            <div class="col-md-6 col-lg-6">
+                <div class="panel panel-primary">
+                    <div class="panel-heading">交易明细</div>
+                    <div class="panel-body">
+                        <div class="form-group">
+                            <label for="tradeDate">日期</label>(交易发生的日期,如:20180506)
+                            <input type="text" class="form-control" id="tradeDate" placeholder="yyyymmdd">
+                        </div>
+                        <div class="form-group">
+                            <label for="tradeId">单号</label>(交易流水单号,不能重复)
+                            <input type="text" class="form-control" id="tradeId">
+                        </div>
+                        <div class="form-group">
+                            <label for="tradeAmount">实付</label>(实付金额)
+                            <input type="text" class="form-control" id="tradeAmount">
+                        </div>
+                        <button type="button" id="push" class="btn btn-success">推送</button>
+                        <button type="button" id="clear" class="btn btn-default">清除</button>
+                    </div>
+
+                    <div id="msgdiv" class="panel-body">
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript">
+        $(init());
+
+        // push
+        // var pushUrl = 'http://59.46.194.58:8154/esales/esales.asmx?op=postesalescreate';
+        var pushUrl = 'http://localhost:8000/xmlpost.php';
+
+        function pushTrade(date, id, amount) {
+            // 推送数据构成
+            var requestBody = '<?xml version="1.0" encoding="utf-8"?> \
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"> \
+  <soap:Body> \
+    <postesalescreate xmlns="http://tempurl.org"> \
+      <astr_request> \
+        <header> \
+          <licensekey></licensekey> \
+          <username></username> \
+          <password></password> \
+          <lang></lang> \
+          <pagerecords>1</pagerecords> \
+          <pageno>1</pageno> \
+          <updatecount>1</updatecount> \
+          <messagetype>SALESDATA</messagetype> \
+          <messageid>332</messageid> \
+          <version>V332M</version> \
+        </header> \
+        <esalestotal> \
+          <txdate_yyyymmdd>' + date + '</txdate_yyyymmdd> \
+          <txtime_hhmmss>120000</txtime_hhmmss> \
+          <mallid>000001</mallid> \
+          <storecode>2017-287</storecode> \
+          <tillid>01</tillid> \
+          <txdocno>' + id + '</txdocno> \
+          <cashier>001</cashier> \
+          <vipcode></vipcode> \
+          <salesman></salesman> \
+          <netqty>1</netqty> \
+          <netamount>' + amount + '</netamount> \
+          <extendparam></extendparam> \
+        </esalestotal> \
+        <esalesitems> \
+          <esalesitem> \
+            <lineno>1</lineno> \
+            <itemcode>1700027001</itemcode> \
+            <qty>1</qty> \
+            <discountamount>0</discountamount> \
+            <netamount>' + amount + '</netamount> \
+            <bonusearn>0</bonusearn> \
+            <extendparam></extendparam> \
+            <salesitemremark></salesitemremark> \
+          </esalesitem> \
+        </esalesitems> \
+        <esalestenders> \
+          <esalestender> \
+            <lineno>1</lineno> \
+            <tendercode>QT</tendercode> \
+            <payamount>' + amount + '</payamount> \
+            <baseamount>' + amount + '</baseamount> \
+            <excessamount>0</excessamount> \
+            <extendparam></extendparam> \
+            <remark></remark> \
+          </esalestender> \
+        </esalestenders> \
+      </astr_request> \
+    </postesalescreate> \
+  </soap:Body> \
+</soap:Envelope>';
+
+            // 开始推送
+            $.ajax({
+                url: pushUrl,
+                type: "POST",
+                dataType: "xml",
+                data: requestBody,
+                error: function (xml, errmsg) {
+                    $('#msgdiv').html('<p class="bg-danger">发生异常！' + errmsg + '</p>');
+                },
+                success: function (xml) {
+                    var responsecode = '';
+                    var responsemessage = '';
+                    $(xml).find("header").each(function (data) {
+                        responsecode = $(this).children("responsecode").text();
+                        responsemessage = $(this).children("responsemessage").text();
+                    });
+                    if (responsecode == 0) {
+                        $('#msgdiv').html('<p class="bg-success">推送成功！<br>响应代码:' + responsecode + '<br>日期:' + date + '<br>单号:' + id + '<br>金额:' + amount + '</p>');
+                    } else {
+                        $('#msgdiv').html('<p class="bg-danger">推送失败！<br>响应代码:' + responsecode + '<br>失败原因:' + responsemessage + '</p>');
+                    }
+                },
+                contentType: "text/xml; charset=\"utf-8\""
+            });
+            return false;
+        }
+
+        function init() {
+            // 日期初始化
+            var now = new Date();
+            var y = now.getFullYear();
+            var m = now.getMonth() + 1;
+            m = m < 10 ? '0' + m : m;
+            var d = now.getDate();
+            d = d < 10 ? ('0' + d) : d;
+            $('#tradeDate').val(y + '' + m + '' + d);
+            $('#tradeId').focus();
+
+            // 推送按钮事件绑定
+            $('#push').click(function () {
+                // 日期
+                var tradeDate = $('#tradeDate').val();
+                // 单号
+                var tradeId = $('#tradeId').val();
+                // 金额
+                var tradeAmount = $('#tradeAmount').val();
+                // 日期有效性检查
+                if (!checkDate(tradeDate.substr(0, 4), tradeDate.substr(4, 2), tradeDate.substr(6, 2))) {
+                    $('#msgdiv').html('<p class="bg-danger">输入日期错误！</p>');
+                    return;
+                }
+                // 单号不能为空
+                if (tradeId.trim() == '') {
+                    $('#msgdiv').html('<p class="bg-danger">单号不能为空！</p>');
+                    return;
+                }
+                // 金额有效性
+                if (!/^[0-9]+(\.[0-9]{1,2})?$/.test(tradeAmount)) {
+                    $('#msgdiv').html('<p class="bg-danger">输入金额错误！</p>');
+                    return;
+                }
+                // 交易数据推送
+                pushTrade(tradeDate, tradeId, tradeAmount);
+            });
+
+            // 清除按钮事件绑定
+            $('#clear').click(function () {
+                // 日期-暂不清除
+                // 单号
+                $('#tradeId').val('');
+                // 金额
+                $('#tradeAmount').val('');
+                // msg
+                $('#msgdiv').html('');
+                $('#tradeId').focus();
+            });
+        }
+
+        // 日期有效性检查
+        function checkDate(yyyy, mm, dd) {
+            return (new Date(yyyy + '-' + mm + '-' + dd).getDate() == dd);
+        }
+    </script>
+</body>
+
+</html>
